@@ -1,122 +1,215 @@
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const MaterialApp(home: OXBoard()));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+/// บอกว่าจะวาด x หรือ o ที่ตำแหน่งนี้
+class Mark {
+  final Offset position;
+  final String type; // 'O' or 'X'
 
-  // This widget is the root of your application.
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
+  Mark({required this.position, required this.type});
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+/// The main board
+class OXBoard extends StatefulWidget {
+  const OXBoard({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<OXBoard> createState() => _OXBoardState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _OXBoardState extends State<OXBoard> {
+  // A list to store the marks (x or o)
+  List<Mark> _marks = <Mark>[];
+  // The currently selected tool for drawing
+  String _selectedTool = 'O';
 
-  void _incrementCounter() {
+  static const double _markSize = 100.0;
+
+  /// Handles a tap down event on the drawing area.
+  /// Converts the global tap position to a local position relative to the CustomPaint
+  /// and adds a new Mark to the list.
+  void _handleTap(Offset localPosition) {
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      // Create a new list instance to trigger `shouldRepaint` in BoardPainter,
+      // ensuring the UI updates correctly.
+      _marks = List<Mark>.from(_marks)
+        ..add(Mark(position: localPosition, type: _selectedTool));
+    });
+  }
+
+  /// Sets the currently selected drawing tool ('O' or 'X').
+  void _selectTool(String tool) {
+    setState(() {
+      _selectedTool = tool;
+    });
+  }
+
+  /// Clears all drawn marks from the board.
+  void _clearBoard() {
+    setState(() {
+      // Create a new empty list instance to clear the board.
+      _marks = <Mark>[];
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      appBar: AppBar(title: const Text('OX Drawing Board'), centerTitle: true),
+      body: Column(
+        children: <Widget>[
+          Expanded(
+            child: LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) {
+                // Determine the size available for the custom paint area.
+                final Size boardSize = Size(
+                  constraints.maxWidth,
+                  constraints.maxHeight,
+                );
+
+                return GestureDetector(
+                  onTapDown: (TapDownDetails details) {
+                    // Find the render box of the current context to convert global to local coordinates.
+                    final RenderBox? box =
+                        context.findRenderObject() as RenderBox?;
+                    if (box != null) {
+                      final Offset localPos = box.globalToLocal(
+                        details.globalPosition,
+                      );
+                      _handleTap(localPos);
+                    }
+                  },
+                  child: CustomPaint(
+                    size: boardSize,
+                    painter: BoardPainter(marks: _marks, markSize: _markSize),
+                  ),
+                );
+              },
             ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                ElevatedButton.icon(
+                  onPressed: () => _selectTool('O'),
+                  icon: const Icon(Icons.circle_outlined),
+                  label: const Text('Draw O'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _selectedTool == 'O'
+                        ? Colors.blue.shade100
+                        : null,
+                    foregroundColor: _selectedTool == 'O'
+                        ? Colors.blue.shade800
+                        : null,
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _selectTool('X'),
+                  icon: const Icon(Icons.close),
+                  label: const Text('Draw X'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _selectedTool == 'X'
+                        ? Colors.red.shade100
+                        : null,
+                    foregroundColor: _selectedTool == 'X'
+                        ? Colors.red.shade800
+                        : null,
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _clearBoard,
+                  icon: const Icon(Icons.delete_sweep_outlined),
+                  label: const Text('Clear All'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade200,
+                    foregroundColor: Colors.grey.shade800,
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
+  }
+}
+
+/// A CustomPainter for 3x3 grid and all the 'O' and 'X'
+class BoardPainter extends CustomPainter {
+  final List<Mark> marks;
+  final double markSize;
+
+  BoardPainter({required this.marks, required this.markSize});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Paint for the grid lines
+    final Paint gridPaint = Paint()
+      ..color = Colors.black
+      ..strokeWidth = 4
+      ..style = PaintingStyle.stroke;
+
+    //gridSize n x n
+    final gridSize = 4;
+    //
+
+    final double cellWidth = size.width / gridSize;
+    final double cellHeight = size.height / gridSize;
+
+    // Draw vertical grid lines
+    for (int i = 1; i < gridSize; i++) {
+      final double x = cellWidth * i;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
+
+    // Draw horizontal grid lines
+    for (int i = 1; i < gridSize; i++) {
+      final double y = cellHeight * i;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Paint for 'O'
+    final Paint oPaint = Paint()
+      ..color = Colors.blue
+      ..strokeWidth = 6
+      ..style = PaintingStyle.stroke;
+
+    // Paint for 'X'
+    final Paint xPaint = Paint()
+      ..color = Colors.red
+      ..strokeWidth = 6
+      ..style = PaintingStyle.stroke;
+
+    // Draw each 'O' and 'X' mark based on its stored position and type
+    for (final Mark mark in marks) {
+      if (mark.type == 'O') {
+        canvas.drawCircle(mark.position, markSize / 2, oPaint);
+      } else if (mark.type == 'X') {
+        final double halfSize = markSize / 2;
+        canvas.drawLine(
+          mark.position + Offset(-halfSize, -halfSize),
+          mark.position + Offset(halfSize, halfSize),
+          xPaint,
+        );
+        canvas.drawLine(
+          mark.position + Offset(-halfSize, halfSize),
+          mark.position + Offset(halfSize, -halfSize),
+          xPaint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(BoardPainter oldDelegate) {
+    return oldDelegate.marks != marks || oldDelegate.markSize != markSize;
   }
 }
