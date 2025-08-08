@@ -17,6 +17,19 @@ class Mark {
     required this.row,
     required this.col,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Mark &&
+          runtimeType == other.runtimeType &&
+          position == other.position &&
+          type == other.type &&
+          row == other.row &&
+          col == other.col;
+
+  @override
+  int get hashCode => position.hashCode ^ type.hashCode ^ row.hashCode ^ col.hashCode;
 }
 
 /// The main board
@@ -33,14 +46,146 @@ class _OXBoardState extends State<OXBoard> {
   // The currently selected tool for drawing
   String _selectedTool = 'O';
 
+  // Game state variables
+  bool _isGameOver = false;
+  String? _winnerType; // 'O', 'X', or null if draw/no winner yet
+
   static const double _markSize = 50.0;
   static const int _gridSize = 5; // Define grid size consistently
+  static const String _emptyCell = '-'; // Placeholder for an empty cell
+
+  /// Converts the current [_marks] list into a 1D list representing the grid state.
+  List<String> _getMovesList() {
+    final int n = _gridSize;
+    List<String> moves = List<String>.filled(n * n, _emptyCell);
+
+    for (final Mark mark in _marks) {
+      moves[mark.row * n + mark.col] = mark.type;
+    }
+    return moves;
+  }
+
+  /// Checks for a winning combination in an N x N grid.
+  bool _checkWinner() {
+    final int n = _gridSize;
+    final List<String> moves = _getMovesList();
+
+    // Check rows
+    for (int r = 0; r < n; r++) {
+      String first = moves[r * n];
+      if (first != _emptyCell) {
+        bool rowWin = true;
+        for (int c = 1; c < n; c++) {
+          if (moves[r * n + c] != first) {
+            rowWin = false;
+            break;
+          }
+        }
+        if (rowWin) return true;
+      }
+    }
+
+    // Check columns
+    for (int c = 0; c < n; c++) {
+      String first = moves[c]; // Top element of the column
+      if (first != _emptyCell) {
+        bool colWin = true;
+        for (int r = 1; r < n; r++) {
+          if (moves[r * n + c] != first) {
+            colWin = false;
+            break;
+          }
+        }
+        if (colWin) return true;
+      }
+    }
+
+    // Check main diagonal (top-left to bottom-right)
+    String firstDiagonal1 = moves[0];
+    if (firstDiagonal1 != _emptyCell) {
+      bool diag1Win = true;
+      for (int i = 1; i < n; i++) {
+        if (moves[i * (n + 1)] != firstDiagonal1) {
+          diag1Win = false;
+          break;
+        }
+      }
+      if (diag1Win) return true;
+    }
+
+    // Check anti-diagonal (top-right to bottom-left)
+    String firstDiagonal2 = moves[n - 1]; // Top-right element
+    if (firstDiagonal2 != _emptyCell) {
+      bool diag2Win = true;
+      for (int i = 1; i < n; i++) {
+        // Index for anti-diagonal: i * n + (n - 1 - i)
+        if (moves[i * n + (n - 1 - i)] != firstDiagonal2) {
+          diag2Win = false;
+          break;
+        }
+      }
+      if (diag2Win) return true;
+    }
+
+    return false;
+  }
+
+  /// Displays an alert dialog when a player wins.
+  void _showWinnerDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false, // User must tap button to dismiss
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Game Over!'),
+          content: Text('Player "${_winnerType!}" wins!'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Dismiss dialog
+                _clearBoard(); // Reset game after dismissal
+              },
+              child: const Text('Play Again'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Displays an alert dialog when the game ends in a draw.
+  void _showDrawDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Game Over!'),
+          content: const Text('It\'s a Draw!'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _clearBoard();
+              },
+              child: const Text('Play Again'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   /// Handles a tap down event on the drawing area.
   /// Converts the global tap position to a local position relative to the CustomPaint
   /// and adds a new Mark to the list, placing it at the center of the tapped grid cell.
   /// if the cell is already occupied, don't draw a new mark.
   void _handleTap(Offset localPosition, Size boardSize) {
+    if (_isGameOver) {
+      // Do not allow placing marks if the game is over
+      return;
+    }
+
     // Calculate cell dimensions
     final double cellWidth = boardSize.width / _gridSize;
     final double cellHeight = boardSize.height / _gridSize;
@@ -75,21 +220,38 @@ class _OXBoardState extends State<OXBoard> {
             col: col,
           ),
         );
+
+      if (_checkWinner()) {
+        _isGameOver = true;
+        _winnerType = _selectedTool;
+        _showWinnerDialog();
+      } else if (_marks.length == _gridSize * _gridSize) {
+        // All cells are filled, and no winner, so it's a draw
+        _isGameOver = true;
+        _winnerType = null; // Indicate a draw
+        _showDrawDialog();
+      }
     });
   }
 
   /// Sets the currently selected drawing tool ('O' or 'X').
   void _selectTool(String tool) {
+    if (_isGameOver) {
+      return; // Cannot change tool if game is over
+    }
     setState(() {
       _selectedTool = tool;
     });
   }
 
-  /// Clears all drawn marks from the board.
+  /// Clears all drawn marks from the board and resets game state.
   void _clearBoard() {
     setState(() {
       // Create a new empty list instance to clear the board.
       _marks = <Mark>[];
+      _isGameOver = false;
+      _winnerType = null;
+      _selectedTool = 'O'; // Reset selected tool to default
     });
   }
 
@@ -139,7 +301,7 @@ class _OXBoardState extends State<OXBoard> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
                 ElevatedButton.icon(
-                  onPressed: () => _selectTool('O'),
+                  onPressed: _isGameOver ? null : () => _selectTool('O'),
                   icon: const Icon(Icons.circle_outlined),
                   label: const Text('Draw O'),
                   style: ElevatedButton.styleFrom(
@@ -153,7 +315,7 @@ class _OXBoardState extends State<OXBoard> {
                   ),
                 ),
                 ElevatedButton.icon(
-                  onPressed: () => _selectTool('X'),
+                  onPressed: _isGameOver ? null : () => _selectTool('X'),
                   icon: const Icon(Icons.close),
                   label: const Text('Draw X'),
                   style: ElevatedButton.styleFrom(
@@ -189,7 +351,7 @@ class _OXBoardState extends State<OXBoard> {
 class BoardPainter extends CustomPainter {
   final List<Mark> marks;
   final double markSize;
-  final int gridSize; // Added gridSize to the painter
+  final int gridSize;
 
   BoardPainter({
     required this.marks,
@@ -254,7 +416,7 @@ class BoardPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(BoardPainter oldDelegate) {
+  bool shouldRepaint(covariant BoardPainter oldDelegate) {
     // Repaint if the list of marks changes, or if markSize/gridSize change
     return oldDelegate.marks != marks ||
         oldDelegate.markSize != markSize ||
