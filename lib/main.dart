@@ -8,8 +8,15 @@ void main() {
 class Mark {
   final Offset position;
   final String type; // 'O' or 'X'
+  final int row; //  Row    index of the cell this mark occupies
+  final int col; // Column  index of the cell this mark occupies
 
-  Mark({required this.position, required this.type});
+  Mark({
+    required this.position,
+    required this.type,
+    required this.row,
+    required this.col,
+  });
 }
 
 /// The main board
@@ -32,6 +39,7 @@ class _OXBoardState extends State<OXBoard> {
   /// Handles a tap down event on the drawing area.
   /// Converts the global tap position to a local position relative to the CustomPaint
   /// and adds a new Mark to the list, placing it at the center of the tapped grid cell.
+  /// if the cell is already occupied, don't draw a new mark.
   void _handleTap(Offset localPosition, Size boardSize) {
     // Calculate cell dimensions
     final double cellWidth = boardSize.width / _gridSize;
@@ -41,6 +49,15 @@ class _OXBoardState extends State<OXBoard> {
     final int col = (localPosition.dx / cellWidth).floor();
     final int row = (localPosition.dy / cellHeight).floor();
 
+    // Check if a mark already exists in the tapped cell
+    final bool cellOccupied =
+        _marks.any((Mark mark) => mark.row == row && mark.col == col);
+
+    // If the cell is marked, do not draw a new mark.
+    if (cellOccupied) {
+      return;
+    }
+
     // Calculate the center of the tapped cell
     final double centerX = col * cellWidth + (cellWidth / 2);
     final double centerY = row * cellHeight + (cellHeight / 2);
@@ -48,10 +65,16 @@ class _OXBoardState extends State<OXBoard> {
     final Offset cellCenterPosition = Offset(centerX, centerY);
 
     setState(() {
-      // Create a new list instance to trigger `shouldRepaint` in BoardPainter,
-      // ensuring the UI updates correctly.
+      // Add the new mark for the tapped cell.
       _marks = List<Mark>.from(_marks)
-        ..add(Mark(position: cellCenterPosition, type: _selectedTool));
+        ..add(
+          Mark(
+            position: cellCenterPosition,
+            type: _selectedTool,
+            row: row,
+            col: col,
+          ),
+        );
     });
   }
 
@@ -73,7 +96,7 @@ class _OXBoardState extends State<OXBoard> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('OX Drawing Board'), centerTitle: true),
+      appBar: AppBar(title: const Text('OX Board'), centerTitle: true),
       body: Column(
         children: <Widget>[
           Expanded(
@@ -232,6 +255,7 @@ class BoardPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(BoardPainter oldDelegate) {
+    // Repaint if the list of marks changes, or if markSize/gridSize change
     return oldDelegate.marks != marks ||
         oldDelegate.markSize != markSize ||
         oldDelegate.gridSize != gridSize;
