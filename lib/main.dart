@@ -26,17 +26,32 @@ class _OXBoardState extends State<OXBoard> {
   // The currently selected tool for drawing
   String _selectedTool = 'O';
 
-  static const double _markSize = 100.0;
+  static const double _markSize = 50.0;
+  static const int _gridSize = 5; // Define grid size consistently
 
   /// Handles a tap down event on the drawing area.
   /// Converts the global tap position to a local position relative to the CustomPaint
-  /// and adds a new Mark to the list.
-  void _handleTap(Offset localPosition) {
+  /// and adds a new Mark to the list, placing it at the center of the tapped grid cell.
+  void _handleTap(Offset localPosition, Size boardSize) {
+    // Calculate cell dimensions
+    final double cellWidth = boardSize.width / _gridSize;
+    final double cellHeight = boardSize.height / _gridSize;
+
+    // Determine which cell was tapped
+    final int col = (localPosition.dx / cellWidth).floor();
+    final int row = (localPosition.dy / cellHeight).floor();
+
+    // Calculate the center of the tapped cell
+    final double centerX = col * cellWidth + (cellWidth / 2);
+    final double centerY = row * cellHeight + (cellHeight / 2);
+
+    final Offset cellCenterPosition = Offset(centerX, centerY);
+
     setState(() {
       // Create a new list instance to trigger `shouldRepaint` in BoardPainter,
       // ensuring the UI updates correctly.
       _marks = List<Mark>.from(_marks)
-        ..add(Mark(position: localPosition, type: _selectedTool));
+        ..add(Mark(position: cellCenterPosition, type: _selectedTool));
     });
   }
 
@@ -79,12 +94,17 @@ class _OXBoardState extends State<OXBoard> {
                       final Offset localPos = box.globalToLocal(
                         details.globalPosition,
                       );
-                      _handleTap(localPos);
+                      // Pass boardSize to _handleTap so it can calculate cell centers
+                      _handleTap(localPos, boardSize);
                     }
                   },
                   child: CustomPaint(
                     size: boardSize,
-                    painter: BoardPainter(marks: _marks, markSize: _markSize),
+                    painter: BoardPainter(
+                      marks: _marks,
+                      markSize: _markSize,
+                      gridSize: _gridSize,
+                    ),
                   ),
                 );
               },
@@ -142,12 +162,17 @@ class _OXBoardState extends State<OXBoard> {
   }
 }
 
-/// A CustomPainter for 3x3 grid and all the 'O' and 'X'
+/// A CustomPainter for NxN grid and all the 'O' and 'X'
 class BoardPainter extends CustomPainter {
   final List<Mark> marks;
   final double markSize;
+  final int gridSize; // Added gridSize to the painter
 
-  BoardPainter({required this.marks, required this.markSize});
+  BoardPainter({
+    required this.marks,
+    required this.markSize,
+    required this.gridSize,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -156,10 +181,6 @@ class BoardPainter extends CustomPainter {
       ..color = Colors.black
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke;
-
-    //gridSize n x n
-    final gridSize = 4;
-    //
 
     final double cellWidth = size.width / gridSize;
     final double cellHeight = size.height / gridSize;
@@ -194,6 +215,7 @@ class BoardPainter extends CustomPainter {
         canvas.drawCircle(mark.position, markSize / 2, oPaint);
       } else if (mark.type == 'X') {
         final double halfSize = markSize / 2;
+        // Adjust line drawing to be centered around mark.position
         canvas.drawLine(
           mark.position + Offset(-halfSize, -halfSize),
           mark.position + Offset(halfSize, halfSize),
@@ -210,6 +232,8 @@ class BoardPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(BoardPainter oldDelegate) {
-    return oldDelegate.marks != marks || oldDelegate.markSize != markSize;
+    return oldDelegate.marks != marks ||
+        oldDelegate.markSize != markSize ||
+        oldDelegate.gridSize != gridSize;
   }
 }
