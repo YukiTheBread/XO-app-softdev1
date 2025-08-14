@@ -4,7 +4,7 @@ void main() {
   runApp(const MaterialApp(home: OXBoard()));
 }
 
-/// บอกว่าจะวาด x หรือ o ที่ตำแหน่งนี้
+/// บอกว่าจะวาด x หรือ o ที่ตำแหน่งไหน
 class Mark {
   final Offset position;
   final String type; // 'O' or 'X'
@@ -50,8 +50,8 @@ class _OXBoardState extends State<OXBoard> {
   bool _isGameOver = false;
   String? _winnerType; // 'O', 'X', or null if draw/no winner yet
 
-  static const double _markSize = 50.0;
-  static const int _gridSize = 5; // Define grid size consistently
+  static const double _markSize = 100.0;
+  static const int _gridSize = 3; // Define grid size consistently
   static const String _emptyCell = '-'; // Placeholder for an empty cell
 
   /// Converts the current [_marks] list into a 1D list representing the grid state.

@@ -1,6 +1,6 @@
 # XO (tic-tac-toe) app
 
-A tic tac toe Flutter project feat. ability to select your symbol(x , o); allowing for many house rule you can play like "only 3 symbol in a row" and some other thing, changing the size of the board like 5x5, or even 10x10, or even more if your heart so desire.
+A tic tac toe Flutter project feat. ability to select your symbol(x,o) turn, changing the size of the board like 5x5, or even 10x10, or even more if your heart so desired; allowing for many house rule you can play like "only 3 of the same symbol in a row per turn" and some other thing.
 
 ## Getting Started
 
