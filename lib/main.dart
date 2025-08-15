@@ -50,17 +50,20 @@ class _OXBoardState extends State<OXBoard> {
   bool _isGameOver = false;
   String? _winnerType; // 'O', 'X', or null if draw/no winner yet
 
-  static const double _markSize = 100.0;
-  static const int _gridSize = 3; // Define grid size consistently
+  static const double _markSize = 400.0/_gridSize;
+  static const int _gridSize = 5; // Define grid size consistently
   static const String _emptyCell = '-'; // Placeholder for an empty cell
 
-  /// Converts the current [_marks] list into a 1D list representing the grid state.
-  List<String> _getMovesList() {
+  /// Converts the current [_marks] list into a 2D list representing the grid state.
+  List<List<String>> _getMovesList() {
     final int n = _gridSize;
-    List<String> moves = List<String>.filled(n * n, _emptyCell);
+    List<List<String>> moves = List<List<String>>.generate(
+      n,
+      (int row) => List<String>.filled(n, _emptyCell),
+    );
 
     for (final Mark mark in _marks) {
-      moves[mark.row * n + mark.col] = mark.type;
+        moves[mark.row][mark.col] = mark.type;
     }
     return moves;
   }
@@ -68,15 +71,15 @@ class _OXBoardState extends State<OXBoard> {
   /// Checks for a winning combination in an N x N grid.
   bool _checkWinner() {
     final int n = _gridSize;
-    final List<String> moves = _getMovesList();
+    final List<List<String>> moves = _getMovesList();
 
     // Check rows
     for (int r = 0; r < n; r++) {
-      String first = moves[r * n];
+      String first = moves[r][0];
       if (first != _emptyCell) {
         bool rowWin = true;
         for (int c = 1; c < n; c++) {
-          if (moves[r * n + c] != first) {
+          if (moves[r][c] != first) {
             rowWin = false;
             break;
           }
@@ -87,11 +90,11 @@ class _OXBoardState extends State<OXBoard> {
 
     // Check columns
     for (int c = 0; c < n; c++) {
-      String first = moves[c]; // Top element of the column
+      String first = moves[0][c]; // Top element of the column
       if (first != _emptyCell) {
         bool colWin = true;
         for (int r = 1; r < n; r++) {
-          if (moves[r * n + c] != first) {
+          if (moves[r][c] != first) {
             colWin = false;
             break;
           }
@@ -101,11 +104,11 @@ class _OXBoardState extends State<OXBoard> {
     }
 
     // Check main diagonal (top-left to bottom-right)
-    String firstDiagonal1 = moves[0];
+    String firstDiagonal1 = moves[0][0];
     if (firstDiagonal1 != _emptyCell) {
       bool diag1Win = true;
       for (int i = 1; i < n; i++) {
-        if (moves[i * (n + 1)] != firstDiagonal1) {
+        if (moves[i][i] != firstDiagonal1) {
           diag1Win = false;
           break;
         }
@@ -114,12 +117,12 @@ class _OXBoardState extends State<OXBoard> {
     }
 
     // Check anti-diagonal (top-right to bottom-left)
-    String firstDiagonal2 = moves[n - 1]; // Top-right element
+    String firstDiagonal2 = moves[0][n - 1]; // Top-right element
     if (firstDiagonal2 != _emptyCell) {
       bool diag2Win = true;
       for (int i = 1; i < n; i++) {
-        // Index for anti-diagonal: i * n + (n - 1 - i)
-        if (moves[i * n + (n - 1 - i)] != firstDiagonal2) {
+        // Index for anti-diagonal: [i][n - 1 - i]
+        if (moves[i][n - 1 - i] != firstDiagonal2) {
           diag2Win = false;
           break;
         }
